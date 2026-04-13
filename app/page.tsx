@@ -485,7 +485,7 @@ Responde siempre en español, de forma clara, amigable y concisa (máx 4 oracion
 
     try {
       const response = await ai.models.generateContent({
-        model: aiModel === 'gemini-pro' ? 'gemini-2.5-pro' : 'gemini-2.5-flash',
+        model: aiModel === 'gemini-pro' ? 'gemini-3.1-pro-preview' : 'gemini-3-flash-preview',
         contents: parts,
         config: {
           systemInstruction: systemCtx,
@@ -514,7 +514,7 @@ Responde siempre en español, de forma clara, amigable y concisa (máx 4 oracion
       const mime = mimeM ? mimeM[1] : 'image/jpeg';
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
+        model: 'gemini-3.1-flash-image-preview',
         contents: {
           parts: [
             { inlineData: { data: b64, mimeType: mime } },
@@ -544,7 +544,11 @@ Responde siempre en español, de forma clara, amigable y concisa (máx 4 oracion
       }
     } catch (e: any) {
       console.error(e);
-      showToast('Error al editar imagen: ' + e.message, 'err');
+      let errorMsg = 'Error al editar imagen: ' + e.message;
+      if (e.message?.includes('429') || e.message?.includes('Quota exceeded') || e.message?.includes('RESOURCE_EXHAUSTED')) {
+        errorMsg = 'Has superado el límite de uso gratuito de la IA (Quota Exceeded). Por favor, espera unos minutos o usa una API key con más cuota.';
+      }
+      showToast(errorMsg, 'err');
     } finally {
       setIsLoading(false);
       setBgStatus(null);
@@ -621,12 +625,16 @@ Responde siempre en español, de forma clara, amigable y concisa (máx 4 oracion
         setMessages(prev => prev.slice(0, -1)); // Remove thinking msg
       }
     } catch (e: any) {
+      let errorMsg = 'Error: ' + e.message;
+      if (e.message?.includes('429') || e.message?.includes('Quota exceeded') || e.message?.includes('RESOURCE_EXHAUSTED')) {
+        errorMsg = 'Has superado el límite de uso gratuito de la IA. Por favor, espera unos minutos o intenta con otra API key.';
+      }
       setMessages(prev => {
         const newMsgs = [...prev];
-        newMsgs[newMsgs.length - 1] = { role: 'ai', text: 'Error: ' + e.message };
+        newMsgs[newMsgs.length - 1] = { role: 'ai', text: errorMsg };
         return newMsgs;
       });
-      showToast('Error IA: ' + e.message, 'err');
+      showToast(errorMsg, 'err');
     }
     setIsLoading(false);
   };
