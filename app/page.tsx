@@ -584,7 +584,7 @@ Responde siempre en español, de forma clara, amigable y concisa (máx 4 oracion
         
         setMessages(prev => [...prev, { 
           role: 'ai', 
-          text: `⚠️ <strong>Límite de cuota alcanzado</strong> en el modelo actual.<br><br>El nivel gratuito de Gemini tiene límites estrictos. ¿Quieres intentar con el otro modelo gratuito?<br><br><button class="px-3 py-1.5 bg-brand-purple rounded-lg text-white text-xs font-bold mt-2 hover:bg-brand-purple-dark transition-all" onclick="window.retryMagicEdit('${otherModel}')">Reintentar con ${otherModelName}</button>` 
+          text: `⚠️ <strong>Límite de cuota alcanzado</strong>.<br><br>El nivel gratuito tiene límites estrictos. Para eliminar este problema permanentemente, puedes habilitar el <strong>pago por uso</strong> en <a href="https://aistudio.google.com/app/settings/billing" target="_blank" class="text-brand-teal underline">Google AI Studio</a>.<br><br>¿Quieres intentar con el otro modelo gratuito mientras tanto?<br><br><button class="px-3 py-1.5 bg-brand-purple rounded-lg text-white text-xs font-bold mt-2 hover:bg-brand-purple-dark transition-all" onclick="window.retryMagicEdit('${otherModel}')">Reintentar con ${otherModelName}</button>` 
         }]);
       }
       showToast(errorMsg, 'err');
@@ -1123,11 +1123,18 @@ Responde siempre en español, de forma clara, amigable y concisa (máx 4 oracion
           <div className="bg-bg-panel border border-border-med rounded-xl p-7 max-w-[440px] w-[90%] flex flex-col gap-4">
             <h3 className="font-syne text-[17px] font-bold">🔑 Cómo obtener las API Keys</h3>
             <p className="text-[13px] text-text-muted leading-[1.6]">
-              <strong>Gemini Flash (GRATIS):</strong><br />
+              <strong>Gemini Flash (Nivel Gratuito):</strong><br />
               1. Ve a <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-brand-purple hover:underline">aistudio.google.com/app/apikey</a><br />
               2. Haz clic en &quot;Create API key&quot;<br />
-              3. Copia y pega la key aquí<br />
-              ✅ <strong>Completamente gratis</strong>: 15 requests/min, 1M tokens/día, soporte de imágenes
+              ✅ <strong>Límites:</strong> 15 peticiones/min. Si ves &quot;Quota Exceeded&quot;, debes esperar 60 segundos o pasar al nivel de pago.
+            </p>
+            <div className="h-[1px] bg-border-light my-0.5"></div>
+            <p className="text-[13px] text-text-muted leading-[1.6]">
+              <strong>🚀 Eliminar límites (Nivel de Pago):</strong><br />
+              Si quieres usar la IA sin interrupciones, habilita el pago por uso:<br />
+              1. Ve a <a href="https://aistudio.google.com/app/settings/billing" target="_blank" className="text-brand-teal hover:underline font-bold">Configuración de Facturación</a><br />
+              2. Conecta una cuenta de Google Cloud.<br />
+              ✅ Esto elimina las restricciones del nivel gratuito y solo pagas por lo que consumes.
             </p>
             <div className="h-[1px] bg-border-light my-0.5"></div>
             <p className="text-[13px] text-text-muted leading-[1.6]">
