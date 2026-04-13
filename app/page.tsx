@@ -54,6 +54,7 @@ export default function PixelatePro() {
   const [geminiKey, setGeminiKey] = useState('');
   const [removeBgKey, setRemoveBgKey] = useState('');
   const [aiModel, setAiModel] = useState('gemini');
+  const [imageEditModel, setImageEditModel] = useState<'gemini-2.5-flash-image' | 'gemini-3.1-flash-image-preview'>('gemini-3.1-flash-image-preview');
 
   const [activeTab, setActiveTab] = useState<'edit' | 'bg' | 'hist' | 'enhance'>('edit');
   const [activeTool, setActiveTool] = useState('select');
@@ -196,6 +197,32 @@ export default function PixelatePro() {
     setFlipped(false);
     resetSliders();
     showToast('Ajustes restablecidos', 'ok');
+  };
+
+  const resizeImageForAI = (dataUrl: string, maxW = 1024, maxH = 1024): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let w = img.width;
+        let h = img.height;
+        if (w > maxW || h > maxH) {
+          if (w > h) {
+            h = Math.round((h * maxW) / w);
+            w = maxW;
+          } else {
+            w = Math.round((w * maxH) / h);
+            h = maxH;
+          }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
+      };
+      img.src = dataUrl;
+    });
   };
 
   const applyPreset = (name: string) => {
@@ -505,16 +532,18 @@ Responde siempre en español, de forma clara, amigable y concisa (máx 4 oracion
     if (!currentSrc) { showToast('Primero carga una imagen', 'err'); return; }
 
     setIsLoading(true);
-    setBgStatus({ msg: `Editando imagen con IA...`, type: 'loading' });
+    setBgStatus({ msg: `Optimizando imagen para IA...`, type: 'loading' });
 
     try {
+      const optimizedSrc = await resizeImageForAI(currentSrc);
+      setBgStatus({ msg: `Editando imagen con IA (${imageEditModel})...`, type: 'loading' });
+      
       const ai = new GoogleGenAI({ apiKey: key });
-      const b64 = currentSrc.includes(',') ? currentSrc.split(',')[1] : currentSrc;
-      const mimeM = currentSrc.match(/data:([^;]+);/);
-      const mime = mimeM ? mimeM[1] : 'image/jpeg';
+      const b64 = optimizedSrc.split(',')[1];
+      const mime = 'image/jpeg';
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.1-flash-image-preview',
+        model: imageEditModel,
         contents: {
           parts: [
             { inlineData: { data: b64, mimeType: mime } },
@@ -534,8 +563,8 @@ Responde siempre en español, de forma clara, amigable y concisa (máx 4 oracion
       if (newImageUrl) {
         setCurrentSrc(newImageUrl);
         setHistoryItems(prev => {
-          const newH = [...prev, { src: newImageUrl }];
-          if (newH.length > 10) newH.shift();
+          const newH = [{ src: newImageUrl }, ...prev];
+          if (newH.length > 12) newH.pop();
           return newH;
         });
         showToast('Imagen editada con éxito', 'ok');
@@ -546,7 +575,8 @@ Responde siempre en español, de forma clara, amigable y concisa (máx 4 oracion
       console.error(e);
       let errorMsg = 'Error al editar imagen: ' + e.message;
       if (e.message?.includes('429') || e.message?.includes('Quota exceeded') || e.message?.includes('RESOURCE_EXHAUSTED')) {
-        errorMsg = 'Has superado el límite de uso gratuito de la IA (Quota Exceeded). Por favor, espera unos minutos o usa una API key con más cuota.';
+        const otherModel = imageEditModel === 'gemini-2.5-flash-image' ? 'Gemini 3.1 Flash' : 'Gemini 2.5 Flash';
+        errorMsg = `Límite de cuota excedido para ${imageEditModel === 'gemini-2.5-flash-image' ? 'Gemini 2.5' : 'Gemini 3.1'}. Intenta cambiar al modelo ${otherModel} en el panel de abajo.`;
       }
       showToast(errorMsg, 'err');
     } finally {
@@ -868,8 +898,18 @@ Responde siempre en español, de forma clara, amigable y concisa (máx 4 oracion
           
           <div className="p-4 border-t border-border-light bg-bg-panel shrink-0 relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-b from-transparent to-brand-purple/5 pointer-events-none"></div>
-            <div className="text-[11px] font-bold tracking-[0.1em] uppercase mb-3 flex items-center gap-1.5 relative z-10">
-              <span className="text-[16px]">✨</span> <span className="bg-gradient-to-r from-brand-purple to-brand-teal bg-clip-text text-transparent">Edición Mágica con IA</span>
+            <div className="text-[11px] font-bold tracking-[0.1em] uppercase mb-3 flex items-center justify-between relative z-10">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[16px]">✨</span> <span className="bg-gradient-to-r from-brand-purple to-brand-teal bg-clip-text text-transparent">Edición Mágica</span>
+              </div>
+              <select 
+                className="bg-bg-main border border-border-med rounded px-1.5 py-0.5 text-[9px] text-text-dark outline-none cursor-pointer hover:border-brand-purple transition-colors"
+                value={imageEditModel}
+                onChange={(e) => setImageEditModel(e.target.value as any)}
+              >
+                <option value="gemini-3.1-flash-image-preview">G 3.1 Flash</option>
+                <option value="gemini-2.5-flash-image">G 2.5 Flash</option>
+              </select>
             </div>
             <div className="relative z-10">
               <textarea 
