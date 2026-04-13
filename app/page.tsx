@@ -55,6 +55,7 @@ export default function PixelatePro() {
   const [removeBgKey, setRemoveBgKey] = useState('');
   const [aiModel, setAiModel] = useState('gemini');
   const [imageEditModel, setImageEditModel] = useState<'gemini-2.5-flash-image' | 'gemini-3.1-flash-image-preview'>('gemini-3.1-flash-image-preview');
+  const [lastMagicPrompt, setLastMagicPrompt] = useState('');
 
   const [activeTab, setActiveTab] = useState<'edit' | 'bg' | 'hist' | 'enhance'>('edit');
   const [activeTool, setActiveTool] = useState('select');
@@ -526,24 +527,26 @@ Responde siempre en español, de forma clara, amigable y concisa (máx 4 oracion
     }
   };
 
-  const editImageWithGemini = async (prompt: string) => {
+  const editImageWithGemini = async (prompt: string, modelOverride?: typeof imageEditModel) => {
     const key = geminiKey || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
     if (!key) { showToast('Ingresa tu API key de Gemini (¡es gratis!)', 'err'); return; }
     if (!currentSrc) { showToast('Primero carga una imagen', 'err'); return; }
 
+    setLastMagicPrompt(prompt);
+    const modelToUse = modelOverride || imageEditModel;
     setIsLoading(true);
     setBgStatus({ msg: `Optimizando imagen para IA...`, type: 'loading' });
 
     try {
       const optimizedSrc = await resizeImageForAI(currentSrc);
-      setBgStatus({ msg: `Editando imagen con IA (${imageEditModel})...`, type: 'loading' });
+      setBgStatus({ msg: `Editando con ${modelToUse === 'gemini-2.5-flash-image' ? 'G 2.5' : 'G 3.1'}...`, type: 'loading' });
       
       const ai = new GoogleGenAI({ apiKey: key });
       const b64 = optimizedSrc.split(',')[1];
       const mime = 'image/jpeg';
 
       const response = await ai.models.generateContent({
-        model: imageEditModel,
+        model: modelToUse,
         contents: {
           parts: [
             { inlineData: { data: b64, mimeType: mime } },
@@ -575,8 +578,14 @@ Responde siempre en español, de forma clara, amigable y concisa (máx 4 oracion
       console.error(e);
       let errorMsg = 'Error al editar imagen: ' + e.message;
       if (e.message?.includes('429') || e.message?.includes('Quota exceeded') || e.message?.includes('RESOURCE_EXHAUSTED')) {
-        const otherModel = imageEditModel === 'gemini-2.5-flash-image' ? 'Gemini 3.1 Flash' : 'Gemini 2.5 Flash';
-        errorMsg = `Límite de cuota excedido para ${imageEditModel === 'gemini-2.5-flash-image' ? 'Gemini 2.5' : 'Gemini 3.1'}. Intenta cambiar al modelo ${otherModel} en el panel de abajo.`;
+        const otherModel = modelToUse === 'gemini-2.5-flash-image' ? 'gemini-3.1-flash-image-preview' : 'gemini-2.5-flash-image';
+        const otherModelName = otherModel === 'gemini-2.5-flash-image' ? 'Gemini 2.5' : 'Gemini 3.1';
+        errorMsg = `Límite de cuota excedido para ${modelToUse === 'gemini-2.5-flash-image' ? 'G 2.5' : 'G 3.1'}.`;
+        
+        setMessages(prev => [...prev, { 
+          role: 'ai', 
+          text: `⚠️ <strong>Límite de cuota alcanzado</strong> en el modelo actual.<br><br>El nivel gratuito de Gemini tiene límites estrictos. ¿Quieres intentar con el otro modelo gratuito?<br><br><button class="px-3 py-1.5 bg-brand-purple rounded-lg text-white text-xs font-bold mt-2 hover:bg-brand-purple-dark transition-all" onclick="window.retryMagicEdit('${otherModel}')">Reintentar con ${otherModelName}</button>` 
+        }]);
       }
       showToast(errorMsg, 'err');
     } finally {
@@ -584,6 +593,14 @@ Responde siempre en español, de forma clara, amigable y concisa (máx 4 oracion
       setBgStatus(null);
     }
   };
+
+  // Expose retry function to window for the HTML button in chat
+  useEffect(() => {
+    (window as any).retryMagicEdit = (model: any) => {
+      setImageEditModel(model);
+      if (lastMagicPrompt) editImageWithGemini(lastMagicPrompt, model);
+    };
+  }, [lastMagicPrompt]);
 
   const executeAICommands = async (text: string) => {
     let cleanText = text;
